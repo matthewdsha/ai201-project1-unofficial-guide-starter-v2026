@@ -61,7 +61,7 @@ Occasionally a question may be on the edge of relevance with the documents, so t
 
 ## 4. The retreived chunks should be the right size
 
-The retrieved chunks should be more than 200 characters and no more than 600 characters each. This should happen in every chunk.
+The retrieved chunks should be more than 150 characters and no more than 600 characters each. This should happen in every chunk.
 
 <!-- YOU WRITE THIS ONE.
 
