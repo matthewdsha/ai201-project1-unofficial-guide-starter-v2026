@@ -114,11 +114,14 @@ Laundry costs $1.75 wash, $1.75 dry, app-based. On noise: moderate; the building
 <!-- One complete question and answer, pasted as text, with the source line
      visible. Milestone 4. -->
 
-**Question:**
+**Question:** Are there rooms for study groups?
 
 **Answer:**
 
 ```
+Yes, group study rooms can be booked through the library site up to two weeks ahead in two-hour blocks.
+
+Source: study_group_rooms.txt
 ```
 
 **My relevance cutoff:**
@@ -132,9 +135,20 @@ Laundry costs $1.75 wash, $1.75 dry, app-based. On noise: moderate; the building
 
      Milestone 4. -->
 
+**0.68.** My five questions topped out at 0.539 (highest) and my five OUT_OF_SCOPE questions bottomed out at 0.825 (lowest) — a clean gap of about 0.29 with no overlap. I put the cutoff at 0.68, roughly the middle of that gap, instead of leaving the 0.6 default. This is done because my two hardest in-corpus questions (math exams, health center) were only ~0.06 below 0.6, so a slightly harder-worded real question could land just over it and get wrongly refused. Moving to 0.68 gives more room against that without giving up anything on the other side — it's still 0.145 below the lowest out-of-scope distance, so it doesn't make the gate any more likely to let a genuinely out-of-scope question through.
+
 | Question | In corpus? | Best distance |
 |---|---|---|
-|  |  |  |
+| What do students say about wait times at Commons during lunch? | Yes | 0.308 |
+| Are there rooms for study groups? | Yes | 0.346 |
+| What are the different housing buildings and what are they like? | Yes | 0.417 |
+| What are exams like for math? | Yes | 0.534 |
+| Where is the health center? | Yes | 0.539 |
+| What is the capital of Mongolia? | No | 0.825 |
+| Who won the 1994 World Cup? | No | 0.886 |
+| What is the recommended dosage of ibuprofen for a headache? | No | 0.844 |
+| How do I write a for loop in Rust? | No | 0.896 |
+| How do I change the oil in a diesel engine? | No | 0.934 |
 
 ## How I Used AI
 
