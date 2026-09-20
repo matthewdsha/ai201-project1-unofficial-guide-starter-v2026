@@ -79,7 +79,7 @@ The retrieved chunks should be more than 150 characters and no more than 600 cha
 
 **Why this target:**
 
-Too much information makes it hard to narrow what is needed for a response while too little makes responses lack support. This is why having between 200 and 600 characters is a good amoumt. This should happen in every chunk as we want good chunks that provide relevant information.
+Too much information makes it hard to narrow what is needed for a response while too little makes responses lack support. This is why having between 150 and 600 characters is a good amount. This should happen in every chunk as we want good chunks that provide relevant information.
 
 ---
 

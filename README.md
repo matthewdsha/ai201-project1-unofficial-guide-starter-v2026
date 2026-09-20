@@ -1,6 +1,6 @@
 # The Unofficial Guide
 
-<!-- Replace this line with your name and which corpus you picked. -->
+Matthew Du, Corpus Selected: campus_life
 
 > **This file is your submission.** Fill it in as you go — most sections get
 > written during the milestone that produces them, not at the end.
@@ -26,6 +26,8 @@
      this repo.
 
      Milestone 5. -->
+
+I picked the campus_life corpus — short student posts about dining halls, housing buildings, course workloads and exams, and administrative policies like deadlines and the health center. The system answers questions like how long the wait is at a specific dining hall, what a course's exam format looks like, or whether study rooms can be booked, and names the specific file each answer came from. If a question falls outside what these documents cover, it refuses rather than guessing, saying it doesn't have enough information.
 
 ## Chunking Strategy
 
@@ -135,7 +137,16 @@ Source: study_group_rooms.txt
 
      Milestone 4. -->
 
-**0.68.** My five questions topped out at 0.539 (highest) and my five OUT_OF_SCOPE questions bottomed out at 0.825 (lowest) — a clean gap of about 0.29 with no overlap. I put the cutoff at 0.68, roughly the middle of that gap, instead of leaving the 0.6 default. This is done because my two hardest in-corpus questions (math exams, health center) were only ~0.06 below 0.6, so a slightly harder-worded real question could land just over it and get wrongly refused. Moving to 0.68 gives more room against that without giving up anything on the other side — it's still 0.145 below the lowest out-of-scope distance, so it doesn't make the gate any more likely to let a genuinely out-of-scope question through.
+**Cutoff: 0.68** (`THRESHOLD` in config.py)
+
+**The two groups:**
+- In-corpus questions: 0.308 – 0.539
+- Out-of-scope questions: 0.825 – 0.934
+- Gap between them: 0.539 to 0.825 — about 0.29 wide, no overlap
+
+**Why 0.68, not the 0.6 default:** My two hardest in-corpus questions (math exams at 0.534, health center at 0.539) sat only ~0.06 below 0.6, so a slightly harder-worded real question could land just over it and get wrongly refused. 0.68 is roughly the middle of the observed gap, which buys margin against that false-refusal risk. It costs nothing on the other side — 0.68 is still 0.145 below the lowest out-of-scope distance, so it doesn't make the gate any more likely to let a genuinely out-of-scope question through.
+
+**Full data:**
 
 | Question | In corpus? | Best distance |
 |---|---|---|
@@ -161,9 +172,9 @@ Source: study_group_rooms.txt
 
      Milestone 5. -->
 
-**1.**
+**1.** I asked Claude if my chunk-size floor of 200 characters (criterion 4) was too strict. It checked my documents and found my shortest real one, course_hist_118_exams.txt, was 183 characters — below my own floor, even though it's a complete, legitimate answer. I lowered the floor to 150.
 
-**2.**
+**2.** I asked Claude to run my five test questions and the five OUT_OF_SCOPE questions through retrieval and report the best distance for each. It found a gap between 0.539 (highest in-corpus) and 0.825 (lowest out-of-scope). Since two of my questions were within 0.06 of the 0.6 default, I moved my threshold to 0.68 for more margin.
 
 <!-- ── Stretch features ─────────────────────────────────────────────────────
      Doing one? Say so here BEFORE you start. A feature this README never
