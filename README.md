@@ -203,15 +203,74 @@ Source: study_group_rooms.txt
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1. Retrieved chunk contains the answer | 4 of 5 |  |  |  |  |
-| 2. Every answer names a source | 5 of 5 |  |  |  |  |
-| 3. Gate stops out-of-corpus questions | 4 of 5 |  |  |  |  |
-| 4. | | | | | |
-| 5. | | | | | |
+| 1. Retrieved chunk contains the answer | 4 of 5 | 4/5 | 4/5 | 4/5 | MET |
+| 2. Every answer names a source | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 3. Gate stops out-of-corpus questions | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 4. Every chunk is 150–600 characters | every chunk | 88/88 | 88/88 | 88/88 | MET |
+| 5. Answer contains ≥2 question keywords | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
 
-<!-- Underneath, paste the REAL output for each criterion from one of your
-     runs — the actual text your system produced, not a description of it.
-     Name the file and function that produced it. -->
+`scorer.py` doesn't exist yet, so Run columns 1, 2, and 5 above are my own
+read of the 15 real answers in `results/run_2026-09-23_1806_before.md`, not an
+automated verdict. Criterion 4 is independent of the questions — I checked
+all 88 chunks `chunker.py::split_documents` produces, not just the ones a
+question happens to touch.
+
+**Criterion 1 real output** — `generate.py::answer_from_chunks`, retrieved by
+`store.py::search`. The one question that misses is "Where is the health
+center?": retrieval correctly finds `health_center.txt` every time (best
+distance 0.539, matching Milestone 4's table), but the document itself never
+states an address — it only covers hours and appointment wait times — so the
+same honest non-answer comes back all three runs:
+
+```
+Based on the provided documents, the counselling service is in the same
+building as the health centre, but the documents do not state the name or
+address of the building.
+
+Source: health_center.txt
+```
+
+Contrast with a question whose answer the retrieved chunk does contain (run 1
+of "Are there rooms for study groups?"):
+
+```
+Yes, group study rooms can be booked two weeks ahead through the library site.
+
+Source: study_group_rooms.txt
+```
+
+**Criterion 2 real output** — every answer, including the health-center one
+above, names a source. That's driven by `GROUNDING_INSTRUCTION` in
+`generate.py`, which explicitly tells the model to name the filename it used.
+
+**Criterion 3 real output** — `gate.py::check`, called from
+`run_eval.py::check_out_of_scope`. All five refused, cutoff 0.68:
+
+```
+refused  (best distance 0.825)  What is the capital of Mongolia?
+refused  (best distance 0.934)  How do I change the oil in a diesel engine?
+refused  (best distance 0.886)  Who won the 1994 World Cup?
+refused  (best distance 0.844)  What is the recommended dosage of ibuprofen for a headache?
+refused  (best distance 0.896)  How do I write a for loop in Rust?
+```
+
+**Criterion 4 real output** — `chunker.py::describe`, over all 88 chunks:
+
+```
+88 chunks, 317 characters on average (shortest 178, longest 549), produced by chunker.py::split_documents
+```
+
+Shortest: `course_hist_118_exams.txt#0` at 178 characters. Longest:
+`housing_old_brewhouse.txt#0` at 549. Nothing fell outside 150–600.
+
+**Criterion 5 real output** — from "What are the different housing buildings
+and what are they like?", run 1, reusing "housing" and "building(s)" directly:
+
+```
+Based on the provided documents, here are the different housing buildings and what they are like:
+
+* **Tamsin Court:** Built in 2021, it features studio apartments with private kitchens and bathrooms...
+```
 
 ## Verdicts
 

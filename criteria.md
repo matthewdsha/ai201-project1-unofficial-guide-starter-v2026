@@ -26,7 +26,7 @@ contains the answer.
 <!-- e.g. "One of my questions is about a topic only two documents mention, so
      I expect that one to be hard." -->
 
-Chunks should contain answers to the questions, but occasionally a document may be pulled related to the topic of the question, but not what it is asking. So using 4 of 5 test questions is good to test it pulls the answer a majority of the time.
+Chunks should contain answers to the questions, but occasionally a document may be pulled related to the topic of the question, but not what it is asking. This is a real risk in campus_life because a few topics span more than one file — e.g. `dining_pellew_dining_hall_followup.txt` is a separate chunk from the original Pellew post it replies to — so the embedding could rank that related file above the one that states the answer. So using 4 of 5 test questions is good to test it pulls the answer a majority of the time.
 ---
 
 ## 2. Every answer names a source
@@ -37,7 +37,7 @@ Every answer the system produces names at least one source document.
 <!-- Why all five and not four? What about your setup makes that achievable —
      or what would have to go wrong for it not to be? -->
 
-Every answer MUST have a source, and this is because if there is no source, then the answer is just made up. The answer should be from a source in order to prove accuracy. There are a lot of documents, so getting an answer from a source is very feasible. The only way it would go wrong is if a user potentially asks a question with an answer that does not exist in a source.
+Every answer MUST have a source, and this is because if there is no source, then the answer is just made up. The answer should be from a source in order to prove accuracy. `generate.py`'s `GROUNDING_INSTRUCTION` explicitly tells the model to name the filename of the excerpt it used and to say it doesn't have enough information rather than guess, so citing is baked into every prompt, not left to the model's discretion. There are a lot of documents, so getting an answer from a source is very feasible. The only way it would go wrong is if a user potentially asks a question with an answer that does not exist in a source.
 ---
 
 ## 3. The relevance gate stops out-of-corpus questions
@@ -55,7 +55,7 @@ in at least 4 of 5 tries.
 <!-- What did your distances look like when you set the cutoff in Milestone 4?
      Was there a clean gap, or did the two groups overlap? -->
 
-Occasionally a question may be on the edge of relevance with the documents, so this could potentially cause the relevance gate to think there is enough information. Using 4 of 5 tries is a good number to show a majority doesn't return an actual answer when there isn't enough documents to cover. It's okay if information from documents are returned if its related to the question, even if it doesn't cover the answer as long as it doesn't happen often.
+Occasionally a question may be on the edge of relevance with the documents, so this could potentially cause the relevance gate to think there is enough information. My Milestone 4 distances back this up: the two groups didn't overlap, but the gap was closer on the in-corpus side than I'd like — my two hardest in-corpus questions (math exams at 0.534, health center at 0.539) sat only ~0.06 below the 0.6 default, while out-of-scope distances started at 0.825. I set THRESHOLD to 0.68, splitting that gap, but a real out-of-scope question worded more like an in-corpus one could still land under it. Using 4 of 5 tries is a good number to show a majority doesn't return an actual answer when there isn't enough documents to cover. It's okay if information from documents are returned if its related to the question, even if it doesn't cover the answer as long as it doesn't happen often.
 
 ---
 
@@ -79,7 +79,7 @@ The retrieved chunks should be more than 150 characters and no more than 600 cha
 
 **Why this target:**
 
-Too much information makes it hard to narrow what is needed for a response while too little makes responses lack support. This is why having between 150 and 600 characters is a good amount. This should happen in every chunk as we want good chunks that provide relevant information.
+Too much information makes it hard to narrow what is needed for a response while too little makes responses lack support. This is why having between 150 and 600 characters is a good amount. The 600 ceiling matches `CHUNK_SIZE` in config.py, which is also why campus_life comes out as one chunk per post — almost nothing in the corpus reaches that length. The 150 floor comes from my shortest real document, `course_hist_118_exams.txt`, at 183 characters: it's a complete, legitimate answer, and an original floor of 200 would have excluded it as if it were a content-free heading. This should happen in every chunk as we want good chunks that provide relevant information.
 
 ---
 
@@ -99,7 +99,7 @@ When our 5 test questions are asked, 4 of 5 responses should contain at least 2 
 
 **Why this target:**
 
-An answer should be relevant to the question, and we can restate the question key words to show it is related. Having there be at least 2 key words is a good amount, and having this in 4 of 5 responses shows it happens for a majority of the time. Occasionally, we may have a question with very few key words.
+An answer should be relevant to the question, and we can restate the question key words to show it is related. Having there be at least 2 key words is a good amount, and having this in 4 of 5 responses shows it happens for a majority of the time. `generate.py`'s `GROUNDING_INSTRUCTION` tells the model to "be brief, two or three sentences," which pushes it toward paraphrasing rather than echoing the question's exact wording — e.g. a question about "wait times at Commons" could come back answered purely in terms of minutes and the building name. Occasionally, we may have a question with very few key words.
 
 ---
 
