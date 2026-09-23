@@ -311,6 +311,12 @@ Based on the provided documents, here are the different housing buildings and wh
 
      Milestone 3. -->
 
+I missed nothing — all five verdicts are MET — so there's no failure pattern to trace across stages. That's not the same as saying the system is excellent, though, and one target in particular looks safer than it should be.
+
+Criterion 5 (answer contains ≥2 question keywords, 4 of 5) cleared at 5/5 in every run, but that's mostly a side effect of `GROUNDING_INSTRUCTION` in `generate.py`, which tells the model to name the filename it used. Campus_life filenames already contain the question's nouns (`health_center.txt`, `study_group_rooms.txt`), so the citation alone hands the check 2 keywords before the model has said anything about the actual answer. I'd tighten this to require overlap with the `expects` phrase in `questions.py` instead of the raw question — that checks whether the answer actually says something specific, not just that it's talking about the same topic.
+
+Criterion 1 (retrieved chunk contains the answer, 4 of 5) is the one target that felt real rather than safe: it landed exactly at 4/5, not with room to spare, and the miss (the health-center question) is a genuine, reproducible pipeline gap rather than something a different threshold would fix — see below.
+
 ## The Improvement
 
 **What I changed:**
