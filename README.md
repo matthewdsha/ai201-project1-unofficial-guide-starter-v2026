@@ -285,11 +285,11 @@ Based on the provided documents, here are the different housing buildings and wh
 
 | # | Criterion | Verdict | How I decided |
 |---|---|---|---|
-| 1 |  |  |  |
-| 2 |  |  |  |
-| 3 |  |  |  |
-| 4 |  |  |  |
-| 5 |  |  |  |
+| 1 | Retrieved chunk contains the answer (4 of 5) | MET | 4/5 held in all three runs, not just on average — "Where is the health center?" fails every time because `health_center.txt` never states an address, not because retrieval is inconsistent. This one is exactly at target, so it's the closest call of the five. |
+| 2 | Every answer names a source (5 of 5) | MET | 5/5 in all three runs, including the health-center question, which names its source even though the answer itself is a non-answer. `GROUNDING_INSTRUCTION` makes this close to automatic. |
+| 3 | Gate stops out-of-corpus questions (4 of 5) | MET | 5/5 in the one deterministic pass — every out-of-scope distance (0.825–0.934) sat well clear of the 0.68 cutoff, so there's real margin, not a near miss. |
+| 4 | Every chunk is 150–600 characters | MET | Checked all 88 chunks directly with `chunker.py::describe`, not just the ones a test question touches. Shortest was 178, longest 549 — comfortable margin on both ends. |
+| 5 | Answer contains ≥2 question keywords (4 of 5) | MET | 5/5 in all three runs — every answer reused specific nouns from its question (course codes, building names, "wait time(s)") rather than paraphrasing them away. |
 
 ## Diagnoses
 

@@ -27,6 +27,17 @@ contains the answer.
      I expect that one to be hard." -->
 
 Chunks should contain answers to the questions, but occasionally a document may be pulled related to the topic of the question, but not what it is asking. This is a real risk in campus_life because a few topics span more than one file — e.g. `dining_pellew_dining_hall_followup.txt` is a separate chunk from the original Pellew post it replies to — so the embedding could rank that related file above the one that states the answer. So using 4 of 5 test questions is good to test it pulls the answer a majority of the time.
+
+> **Revised in unit 2:** For at least 4 of 5 questions, the answer can be
+> found somewhere across the retrieved chunks as a whole, not necessarily in
+> any single one of them.
+>
+> **Why revised:** "one that contains the answer" reads two ways that
+> disagree: strictly, "housing buildings" fails since no single chunk covers
+> more than one building, giving 3 of 5 (MISS); loosely, it's 4 of 5 (MET).
+> I'm keeping the loose reading because it matches how a user actually
+> experiences the system — reading the assembled answer, not one isolated
+> chunk.
 ---
 
 ## 2. Every answer names a source
