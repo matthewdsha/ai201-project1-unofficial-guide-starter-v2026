@@ -319,12 +319,9 @@ Criterion 1 (retrieved chunk contains the answer, 4 of 5) is the one target that
 
 ## The Improvement
 
-**What I changed:**
+**What I changed:** Hybrid search. `store.py::search` used to rank purely on cosine distance. Now it also scores every chunk with BM25 (keyword overlap, via `rank_bm25`) and combines the two rankings with reciprocal rank fusion (`1/(60 + vector_rank) + 1/(60 + bm25_rank)`) to pick the final top-k. Each `Result` still carries its real cosine distance untouched, so the gate's 0.68 cutoff from Milestone 4 still applies.
 
-**Why I picked it:**
-
-<!-- Connect it to a specific diagnosis above in one sentence. If you can't,
-     you picked a fix because it sounded impressive. -->
+**Why I picked it:** Not the health center question (that one's covered above; no ranking change adds an address that was never written down). This targets something else from criterion 1's revision: campus_life has several same-topic file pairs (a post plus its `_followup`), so a query naming a specific proper noun could get semantic search to rank a similar but wrong document over the right one. Hadn't happened yet in any of my five questions, but it's exactly what BM25 is good at catching.
 
 ### Run Log — After
 
@@ -333,20 +330,70 @@ Criterion 1 (retrieved chunk contains the answer, 4 of 5) is the one target that
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1. Retrieved chunk contains the answer | 4 of 5 |  |  |  |  |
-| 2. Every answer names a source | 5 of 5 |  |  |  |  |
-| 3. Gate stops out-of-corpus questions | 4 of 5 |  |  |  |  |
-| 4. | | | | | |
-| 5. | | | | | |
+| 1. Retrieved chunk contains the answer (revised: across the chunks as a whole) | 4 of 5 | 4/5 | 4/5 | 4/5 | MET |
+| 2. Every answer names a source | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 3. Gate stops out-of-corpus questions | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 4. Every chunk is 150–600 characters | every chunk | 88/88 | 88/88 | 88/88 | MET |
+| 5. Answer contains ≥2 question keywords | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
 
-**Did it help?**
+Every verdict is identical to Milestone 1. Here's the real output per criterion, same format as before, with the before numbers next to the after ones so the difference (or lack of one) is visible.
 
-<!-- Say plainly whether it did, and how you know. If it made things worse,
-     say that — a change that backfired, honestly reported, earns full credit
-     and is more interesting than one that worked. What matters is that you can
-     tell.
+**Criterion 1 real output** — `generate.py::answer_from_chunks`, retrieved by `store.py::search` (now hybrid). The four working questions retrieved the exact same source sets at the exact same distances as before. Wait times, before and after:
 
-     Milestone 4. -->
+```
+Before: dining_halden_hall_followup.txt, dining_kestrel_commons.txt, dining_kestrel_commons_followup.txt,
+        dining_north_kitchen_followup.txt, dining_the_ridgeway_cafe_followup.txt  (distance 0.308)
+After:  dining_halden_hall_followup.txt, dining_kestrel_commons.txt, dining_kestrel_commons_followup.txt,
+        dining_north_kitchen_followup.txt, dining_the_ridgeway_cafe_followup.txt  (distance 0.308)
+```
+
+Health center still misses, same as before. The padding documents around it changed, but the one that matters and its distance didn't:
+
+```
+Before sources: dining_north_kitchen_followup.txt, dining_the_atrium_followup.txt, health_center.txt,
+                housing_calder_annexe.txt, housing_tamsin_court.txt  (distance 0.539)
+After sources:  dining_the_ridgeway_cafe.txt, dining_verrill_street_grill.txt, health_center.txt,
+                housing_innisfree_hall.txt, orientation_what_matters.txt  (distance 0.539)
+
+Before answer: Based on the provided documents, the counselling service is in the same
+building as the health centre, but the documents do not state the name or address of
+the building.
+
+After answer: Based on the provided documents, the counselling is in the same building
+as the health centre, but the exact location or address of the building is not provided.
+```
+
+**Criterion 2 real output** — every answer still names a source, same as before; `GROUNDING_INSTRUCTION` didn't change, so this was never at risk from a retrieval-side change.
+
+**Criterion 3 real output** — `gate.py::check`, called from `run_eval.py::check_out_of_scope`. All five still refused, cutoff 0.68, distances close to before but not identical:
+
+```
+Before: 0.825  Mongolia    →  After: 0.869
+Before: 0.886  World Cup   →  After: 0.886
+Before: 0.844  Ibuprofen   →  After: 0.860
+Before: 0.896  Rust        →  After: 0.900
+Before: 0.934  Diesel oil  →  After: 0.934
+```
+
+Every number moved by less than 0.04 at most, all of it still 0.18+ clear of the cutoff. Reordering the top-k changed which documents Chroma returns alongside the true nearest neighbor, which shifts these slightly, but never enough to threaten the refusal.
+
+**Criterion 4 real output** — `chunker.py::describe`. This change never touched chunking, so it's the same 88 chunks, same numbers, before and after:
+
+```
+88 chunks, 317 characters on average (shortest 178, longest 549), produced by chunker.py::split_documents
+```
+
+**Criterion 5 real output** — from "What are the different housing buildings and what are they like?", before and after. The retrieved set didn't change (still the same five housing files), and the answer still reuses "housing" and "building(s)" directly both times:
+
+```
+Before: Based on the provided documents, here are the different housing buildings and
+what they are like: * Tamsin Court: Built in 2021...
+
+After: Based on the provided documents, here is what the housing buildings are like:
+* Tamsin Court: Built in 2021...
+```
+
+**Did it help?** No. For the four working questions, the correct document was already winning on cosine distance alone, so RRF had nothing to fix. Health center still fails the same way, for the same reason: `health_center.txt` is still the only document that mentions it, and no reordering adds an address that was never written down. This test set just never hit the thing hybrid search is supposed to help with. That doesn't make the risk imaginary; it's a real property of the corpus, my five questions just didn't happen to trigger it. So the change comes out as a no-op here, not an improvement.
 
 ## What's Still Broken
 

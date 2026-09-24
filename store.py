@@ -18,6 +18,7 @@ rest of the project if they were wrong:
 """
 
 import os
+import re
 import shutil
 from dataclasses import dataclass
 
@@ -28,6 +29,7 @@ from dataclasses import dataclass
 os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 
 import chromadb  # noqa: E402
+from rank_bm25 import BM25Okapi  # noqa: E402
 
 import config
 from chunker import Chunk
@@ -45,6 +47,18 @@ class Result:
 
 
 _model = None
+
+# name -> (BM25Okapi over every chunk in that collection, ids in the same order)
+_bm25_cache: dict[str, tuple[BM25Okapi, list[str]]] = {}
+
+# How much weight the keyword match gets versus the semantic match, in the
+# reciprocal-rank-fusion combination `search` uses to pick the final top_k.
+# Standard RRF constant — see `search`.
+RRF_K = 60
+
+
+def _tokenize(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+", text.lower())
 
 # The model Chroma bundles. Anything else in config.EMBEDDING_MODEL means
 # "fetch that one from Hugging Face instead" — see `_embedder`.
@@ -150,6 +164,8 @@ def build_index(
     name = config.collection_name(corpus, variant)
     client = _client()
 
+    _bm25_cache.pop(name, None)
+
     try:
         client.delete_collection(name)
     except Exception:
@@ -178,6 +194,27 @@ def build_index(
     return len(chunks)
 
 
+def _bm25_for(collection, name: str) -> tuple[BM25Okapi, list[str]]:
+    """
+    The keyword-search half of hybrid search: a BM25 index built once over
+    every chunk in the collection, cached by collection name.
+
+    Built from `collection.get()` rather than the query results, because BM25
+    needs the whole corpus's term statistics (how rare a word is overall) to
+    score anything — it can't be built fresh from just one query's top hits.
+    """
+    cached = _bm25_cache.get(name)
+    if cached is not None:
+        return cached
+
+    everything = collection.get(include=["documents"])
+    ids = everything["ids"]
+    tokenized = [_tokenize(text) for text in everything["documents"]]
+    bm25 = BM25Okapi(tokenized) if tokenized else None
+    _bm25_cache[name] = (bm25, ids)
+    return bm25, ids
+
+
 def search(
     question: str,
     top_k: int | None = None,
@@ -185,9 +222,20 @@ def search(
     variant: str = "default",
 ) -> list[Result]:
     """
-    Retrieve the chunks closest in meaning to a question.
+    Retrieve the chunks closest to a question, by meaning AND by keyword.
 
-    Returns them nearest-first, each with its distance.
+    Milestone 4's original version ranked on cosine distance alone. That
+    glides past exact terms — a proper noun like "Kestrel Commons" or a
+    course code like "MATH 220" can lose to a semantically-similar chunk
+    about a different dining hall or course. This version also scores every
+    chunk with BM25 (keyword overlap) and combines the two rankings with
+    reciprocal rank fusion: each chunk's score is 1/(RRF_K + its vector rank)
+    + 1/(RRF_K + its BM25 rank), and the top_k by that combined score wins.
+
+    Each returned Result still carries its own real cosine distance, not a
+    blended score — the relevance gate's threshold was calibrated against
+    cosine distance in Milestone 4, and changing what "distance" means here
+    would silently invalidate that cutoff.
     """
     top_k = top_k or config.TOP_K
     name = config.collection_name(corpus, variant)
@@ -199,25 +247,39 @@ def search(
             f"No index called '{name}'. Run `python app.py index` first."
         ) from exc
 
-    raw = collection.query(
-        query_embeddings=embed([question]),
-        n_results=min(top_k, collection.count()),
-    )
+    total = collection.count()
+    raw = collection.query(query_embeddings=embed([question]), n_results=total)
 
-    results: list[Result] = []
-    for text, meta, distance in zip(
-        raw["documents"][0], raw["metadatas"][0], raw["distances"][0]
-    ):
-        results.append(
-            Result(
-                text=text,
-                source=str(meta.get("source", "unknown")),
-                label=f"{meta.get('source', 'unknown')}#{meta.get('index', 0)}",
-                distance=float(distance),
-                produced_by=str(meta.get("produced_by", "unknown")),
-            )
+    ids = raw["ids"][0]
+    by_id = {
+        doc_id: Result(
+            text=text,
+            source=str(meta.get("source", "unknown")),
+            label=f"{meta.get('source', 'unknown')}#{meta.get('index', 0)}",
+            distance=float(distance),
+            produced_by=str(meta.get("produced_by", "unknown")),
         )
-    return results
+        for doc_id, text, meta, distance in zip(
+            ids, raw["documents"][0], raw["metadatas"][0], raw["distances"][0]
+        )
+    }
+    vector_rank = {doc_id: rank for rank, doc_id in enumerate(ids)}
+
+    bm25, bm25_ids = _bm25_for(collection, name)
+    if bm25 is not None:
+        scores = bm25.get_scores(_tokenize(question))
+        bm25_order = sorted(range(len(bm25_ids)), key=lambda i: -scores[i])
+        bm25_rank = {bm25_ids[i]: rank for rank, i in enumerate(bm25_order)}
+    else:
+        bm25_rank = {}
+
+    def combined_score(doc_id: str) -> float:
+        v_rank = vector_rank.get(doc_id, len(ids))
+        b_rank = bm25_rank.get(doc_id, len(bm25_ids))
+        return 1.0 / (RRF_K + v_rank + 1) + 1.0 / (RRF_K + b_rank + 1)
+
+    ranked_ids = sorted(ids, key=combined_score, reverse=True)[:top_k]
+    return [by_id[doc_id] for doc_id in ranked_ids]
 
 
 def index_exists(corpus: str | None = None, variant: str = "default") -> bool:
