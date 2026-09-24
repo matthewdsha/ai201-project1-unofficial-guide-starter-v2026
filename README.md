@@ -317,11 +317,13 @@ Criterion 5 (answer contains ≥2 question keywords, 4 of 5) cleared at 5/5 in e
 
 Criterion 1 (retrieved chunk contains the answer, 4 of 5) is the one target that felt real rather than safe: it landed exactly at 4/5, not with room to spare, and the miss (the health-center question) is a genuine, reproducible pipeline gap rather than something a different threshold would fix — see below.
 
+One more thing at the retrieval stage, separate from that miss: campus_life has several topics split across a main post and a `_followup` file (Pellew's dining hall post, Kestrel Commons's, and others). Cosine distance only ranks on meaning, so a question naming one specific dining hall or course has no built-in reason to prefer the chunk that names it over a same-topic chunk that's just similar. None of my five questions hit this, but it's a real property of the corpus, not a guess.
+
 ## The Improvement
 
 **What I changed:** Hybrid search. `store.py::search` used to rank purely on cosine distance. Now it also scores every chunk with BM25 (keyword overlap, via `rank_bm25`) and combines the two rankings with reciprocal rank fusion (`1/(60 + vector_rank) + 1/(60 + bm25_rank)`) to pick the final top-k. Each `Result` still carries its real cosine distance untouched, so the gate's 0.68 cutoff from Milestone 4 still applies.
 
-**Why I picked it:** Not the health center question (that one's covered above; no ranking change adds an address that was never written down). This targets something else from criterion 1's revision: campus_life has several same-topic file pairs (a post plus its `_followup`), so a query naming a specific proper noun could get semantic search to rank a similar but wrong document over the right one. Hadn't happened yet in any of my five questions, but it's exactly what BM25 is good at catching.
+**Why I picked it:** The only actual failure in the diagnosis is the health center miss, and no pipeline change can fix it (covered above; no ranking change adds an address that was never written down), so I picked the next best thing the diagnosis pointed at instead: the other risk named in Diagnoses, same-topic file pairs where a query naming a specific proper noun could get semantic search to rank a similar but wrong document over the right one. Hadn't happened yet in any of my five questions, but it's exactly what BM25 is good at catching.
 
 ### Run Log — After
 
@@ -405,9 +407,23 @@ After: Based on the provided documents, here is what the housing buildings are l
 
      Milestone 5. -->
 
+No criterion is missed, before or after the fix, so there's nothing at the criterion level to list here. But one real failure survives underneath a MET verdict, and I don't want the passing number to hide it: the health center question still doesn't answer where the health center is.
+
+I stopped there because the fix isn't a pipeline change. `health_center.txt` is the only document in the corpus that mentions the health center at all, and it never states an address, so nothing in retrieval, chunking, the gate, or the prompt can produce one. The actual fix is going back to the source and writing the address down, which is a corpus-content fix, not a code fix, and editing the corpus to make my own test pass felt like gaming the assignment rather than doing it. I'd rather leave this one honestly broken than quietly patch the document.
+
+Two other things I noticed but didn't chase, both untested rather than broken: criterion 3's OUT_OF_SCOPE questions (Mongolia, oil changes, the World Cup) are all so far from campus life that the gate has never actually been pressured near its 0.68 cutoff, so I don't know how it holds up on a genuinely borderline question. And criterion 4 has never exercised `fallback_split`'s windowed-cut logic at all, since no document in campus_life is over 600 characters. Both are things I'd want a harder test for before I'd call them solid, not things I know are wrong.
+
 ## What I'd Do Differently
 
 <!-- Knowing what you know now — which of your five criteria would you write
      differently, and why?
 
      Milestone 5. -->
+
+Criterion 5. It cleared at 5/5 every time, but mostly because `GROUNDING_INSTRUCTION` makes the model cite the filename it used, and campus_life filenames already contain the question's nouns (`health_center.txt`, `study_group_rooms.txt`). The citation alone hands the check its two keywords before the model has said anything about the actual answer, so it's really measuring "did retrieval find the right file," which criterion 1 already covers. Next time I'd write it against the `expects` phrase in `questions.py` instead of the raw question, so it actually checks whether the answer says something specific rather than just stays on topic.
+
+## How I Used AI (for Unit 2)
+
+I asked Claude to argue as hard as it could for the opposite verdict on each of my five criteria, using the actual run log instead of guessing. For criterion 1 it found "the retrieved chunks include one that contains the answer" reads two ways that disagree: strictly, "housing buildings" fails since no single chunk covers more than one building, giving 3 of 5; loosely, it's 4 of 5. Same three runs, two different verdicts, so I revised the criterion to say which reading counts.
+
+Before picking a fix, I gave Claude the health-center question and its retrieved chunks and asked for three possible causes at different pipeline stages, without saying which was most likely. One was that the source document might just never have recorded an address. I checked that myself by grepping the corpus, found it was true, and aimed my hybrid-search fix at a different, real risk instead of a question no retrieval change could fix.
